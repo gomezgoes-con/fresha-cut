@@ -684,30 +684,17 @@
     <script>
         // JSONbin.io Configuration
         const JSONBIN_API_KEY = '$2a$10$abwc/6HmOTJ8lhZwzJgm6OLitAXzGBayoiXF6X8DlI5EJ0/Vid6PK';
-        let JSONBIN_BIN_ID = localStorage.getItem('freshacut_bin_id') || null;
+        // Shared bin ID for all users - do not change this!
+        const JSONBIN_BIN_ID = '696a9737d0ea881f4070b445';
+
+        // Check if we need to migrate from old localStorage-based bin
+        const oldBinId = localStorage.getItem('freshacut_bin_id');
+        if (oldBinId && oldBinId !== JSONBIN_BIN_ID) {
+            console.log('Note: Previously used local bin:', oldBinId);
+        }
 
         // Leaderboard functions
         async function initializeLeaderboard() {
-            if (!JSONBIN_BIN_ID) {
-                // Create a new bin for the leaderboard
-                try {
-                    const response = await fetch('https://api.jsonbin.io/v3/b', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Master-Key': JSONBIN_API_KEY,
-                            'X-Bin-Name': 'fresha-cut-leaderboard'
-                        },
-                        body: JSON.stringify({ scores: [] })
-                    });
-                    const data = await response.json();
-                    JSONBIN_BIN_ID = data.metadata.id;
-                    localStorage.setItem('freshacut_bin_id', JSONBIN_BIN_ID);
-                    console.log('Created new leaderboard bin:', JSONBIN_BIN_ID);
-                } catch (error) {
-                    console.error('Failed to create leaderboard:', error);
-                }
-            }
             loadLeaderboard();
         }
 
@@ -823,7 +810,7 @@
             isRunning: false,
             clients: 0,
             level: 1,
-            scissorsY: 200,
+            scissorsY: 150,
             scissorsDirection: 1,
             scissorsSpeed: 3,
             baseSpeed: 3,
@@ -859,9 +846,10 @@
         const playerNameInput = document.getElementById('player-name');
         const nameInputContainer = document.getElementById('name-input-container');
 
-        // Game area boundaries (adjusted to keep scissors within visible game area)
-        const gameAreaTop = 70;
-        const gameAreaBottom = 440;
+        // Game area boundaries (relative to game-area element, not game-container)
+        // Scissors position is relative to .game-area which starts at top: 70px in CSS
+        const gameAreaTop = 0;
+        const gameAreaBottom = 370;
         const gameAreaHeight = gameAreaBottom - gameAreaTop;
 
         // Initialize hair
@@ -1062,7 +1050,7 @@
             game.baseSpeed = 3;
             game.scissorsSpeed = 3;
             game.targetHeight = 80;
-            game.scissorsY = 200;
+            game.scissorsY = 150;
             game.scissorsDirection = 1;
             // Reset speed variation
             game.slowModeActive = false;
