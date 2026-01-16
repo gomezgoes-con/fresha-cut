@@ -825,12 +825,20 @@
             level: 1,
             scissorsY: 200,
             scissorsDirection: 1,
-            scissorsSpeed: 2,
+            scissorsSpeed: 3,
+            baseSpeed: 3,
             targetTop: 150,
             targetHeight: 80,
             minTargetHeight: 30,
-            maxSpeed: 8,
-            animationId: null
+            maxSpeed: 12,
+            animationId: null,
+            // Speed variation mechanics
+            slowModeActive: false,
+            slowModeCutsRemaining: 0,
+            cutsUntilSlowMode: 5,
+            slowModeSpeedMultiplier: 0.3,
+            // Bounce tracking for double points
+            bounceCount: 0
         };
 
         // DOM Elements
@@ -851,9 +859,9 @@
         const playerNameInput = document.getElementById('player-name');
         const nameInputContainer = document.getElementById('name-input-container');
 
-        // Game area boundaries
+        // Game area boundaries (adjusted to keep scissors within visible game area)
         const gameAreaTop = 70;
-        const gameAreaBottom = 520;
+        const gameAreaBottom = 440;
         const gameAreaHeight = gameAreaBottom - gameAreaTop;
 
         // Initialize hair
@@ -887,8 +895,12 @@
         }
 
         // Show feedback
-        function showFeedback(success) {
-            feedback.textContent = success ? 'PERFECT!' : 'MISS!';
+        function showFeedback(success, isDouble = false) {
+            if (success) {
+                feedback.textContent = isDouble ? 'DOUBLE! x2' : 'PERFECT!';
+            } else {
+                feedback.textContent = 'MISS!';
+            }
             feedback.className = 'feedback ' + (success ? 'success' : 'fail');
 
             // Reset animation
@@ -909,14 +921,47 @@
         function increaseDifficulty() {
             game.level++;
 
-            // Increase speed (cap at maxSpeed)
-            game.scissorsSpeed = Math.min(2 + game.level * 0.5, game.maxSpeed);
+            // Increase base speed (cap at maxSpeed)
+            game.baseSpeed = Math.min(3 + game.level * 0.7, game.maxSpeed);
+
+            // Apply current speed (considering slow mode)
+            updateSpeed();
 
             // Decrease target zone height (cap at minTargetHeight)
             game.targetHeight = Math.max(80 - game.level * 5, game.minTargetHeight);
 
             showLevelUp();
             updateDisplays();
+        }
+
+        // Update speed based on slow mode state
+        function updateSpeed() {
+            if (game.slowModeActive) {
+                game.scissorsSpeed = game.baseSpeed * game.slowModeSpeedMultiplier;
+            } else {
+                game.scissorsSpeed = game.baseSpeed;
+            }
+        }
+
+        // Handle speed variation - called after each successful cut
+        function handleSpeedVariation() {
+            if (game.slowModeActive) {
+                game.slowModeCutsRemaining--;
+                if (game.slowModeCutsRemaining <= 0) {
+                    // Exit slow mode, speed back up
+                    game.slowModeActive = false;
+                    game.cutsUntilSlowMode = 4 + Math.floor(Math.random() * 4); // 4-7 cuts until next slow mode
+                    updateSpeed();
+                }
+            } else {
+                game.cutsUntilSlowMode--;
+                if (game.cutsUntilSlowMode <= 0) {
+                    // Enter slow mode
+                    game.slowModeActive = true;
+                    game.slowModeCutsRemaining = 2 + Math.floor(Math.random() * 2); // 2-3 slow cuts
+                    updateSpeed();
+                }
+            }
         }
 
         // Cut hair animation
@@ -954,16 +999,25 @@
             setTimeout(() => scissors.classList.remove('cutting'), 150);
 
             if (checkCut()) {
-                // Success!
-                game.clients++;
-                showFeedback(true);
+                // Success! Check for double points (cut within 1 bounce)
+                const isDoublePoints = game.bounceCount <= 1;
+                const points = isDoublePoints ? 2 : 1;
+                game.clients += points;
+
+                showFeedback(true, isDoublePoints);
                 cutHair();
                 mouth.className = 'mouth happy';
+
+                // Reset bounce counter for next cut
+                game.bounceCount = 0;
 
                 // Check for level up (every 3 clients)
                 if (game.clients % 3 === 0) {
                     increaseDifficulty();
                 }
+
+                // Handle speed variation (slow down periodically)
+                handleSpeedVariation();
 
                 updateDisplays();
                 newClient();
@@ -986,9 +1040,11 @@
             if (game.scissorsY <= gameAreaTop) {
                 game.scissorsY = gameAreaTop;
                 game.scissorsDirection = 1;
+                game.bounceCount++;
             } else if (game.scissorsY >= gameAreaBottom - 60) {
                 game.scissorsY = gameAreaBottom - 60;
                 game.scissorsDirection = -1;
+                game.bounceCount++;
             }
 
             // Update scissors position
@@ -1003,10 +1059,17 @@
             game.isRunning = true;
             game.clients = 0;
             game.level = 1;
-            game.scissorsSpeed = 2;
+            game.baseSpeed = 3;
+            game.scissorsSpeed = 3;
             game.targetHeight = 80;
             game.scissorsY = 200;
             game.scissorsDirection = 1;
+            // Reset speed variation
+            game.slowModeActive = false;
+            game.slowModeCutsRemaining = 0;
+            game.cutsUntilSlowMode = 5;
+            // Reset bounce counter
+            game.bounceCount = 0;
 
             // Hide overlays
             startScreen.classList.add('hidden');
