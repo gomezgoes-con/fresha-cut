@@ -394,6 +394,39 @@
             box-shadow: 0 10px 30px rgba(3, 122, 255, 0.4);
         }
 
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-group .start-btn,
+        .btn-group .secondary-btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 15px 20px;
+            font-size: 16px;
+            margin-top: 0;
+        }
+
+        .secondary-btn {
+            padding: 15px 20px;
+            font-size: 16px;
+            background: transparent;
+            color: #037AFF;
+            border: 2px solid #037AFF;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(3, 122, 255, 0.2);
+            transform: scale(1.05);
+        }
+
         /* Feedback */
         .feedback {
             position: absolute;
@@ -586,6 +619,60 @@
             color: rgba(255, 255, 255, 0.5);
             margin-top: 10px;
         }
+
+        /* Full Leaderboard Modal */
+        .full-leaderboard-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 22, 25, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 150;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .full-leaderboard-overlay.hidden {
+            display: none;
+        }
+
+        .full-leaderboard-overlay h2 {
+            font-size: 24px;
+            color: #037AFF;
+            margin-bottom: 20px;
+        }
+
+        .full-leaderboard-list {
+            width: 100%;
+            max-width: 340px;
+            background: rgba(3, 122, 255, 0.1);
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .close-btn {
+            padding: 12px 30px;
+            font-size: 14px;
+            background: #037AFF;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .close-btn:hover {
+            background: #0262cc;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -677,7 +764,22 @@
                     <div class="leaderboard-loading">Loading...</div>
                 </div>
             </div>
-            <button class="start-btn" id="restart-btn">TRY AGAIN</button>
+            <div class="btn-group">
+                <button class="start-btn" id="restart-btn">PLAY AGAIN</button>
+                <button class="secondary-btn" id="full-leaderboard-btn">FULL BOARD</button>
+            </div>
+        </div>
+
+        <!-- Full Leaderboard Overlay -->
+        <div class="full-leaderboard-overlay hidden" id="full-leaderboard-overlay">
+            <h2>LEADERBOARD</h2>
+            <div class="full-leaderboard-list" id="full-leaderboard-list">
+                <div class="leaderboard-loading">Loading...</div>
+            </div>
+            <div class="btn-group">
+                <button class="start-btn" id="play-from-leaderboard-btn">PLAY AGAIN</button>
+                <button class="secondary-btn" id="close-leaderboard-btn">BACK</button>
+            </div>
         </div>
     </div>
 
@@ -778,7 +880,8 @@
             const startList = document.getElementById('start-leaderboard-list');
             const gameoverList = document.getElementById('gameover-leaderboard-list');
 
-            const html = scores.length === 0
+            // Top 10 for preview
+            const previewHtml = scores.length === 0
                 ? '<div class="leaderboard-loading">No scores yet. Be the first!</div>'
                 : scores.slice(0, 10).map((score, index) => {
                     let rankClass = '';
@@ -795,8 +898,27 @@
                     `;
                 }).join('');
 
-            startList.innerHTML = html;
-            gameoverList.innerHTML = html;
+            // Full leaderboard (all scores)
+            const fullHtml = scores.length === 0
+                ? '<div class="leaderboard-loading">No scores yet. Be the first!</div>'
+                : scores.map((score, index) => {
+                    let rankClass = '';
+                    if (index === 0) rankClass = 'gold';
+                    else if (index === 1) rankClass = 'silver';
+                    else if (index === 2) rankClass = 'bronze';
+
+                    return `
+                        <div class="leaderboard-item">
+                            <span class="rank ${rankClass}">${index + 1}</span>
+                            <span class="name">${escapeHtml(score.name)}</span>
+                            <span class="score">${score.clients}</span>
+                        </div>
+                    `;
+                }).join('');
+
+            startList.innerHTML = previewHtml;
+            gameoverList.innerHTML = previewHtml;
+            fullLeaderboardList.innerHTML = fullHtml;
         }
 
         function escapeHtml(text) {
@@ -845,11 +967,17 @@
         const finalLevel = document.getElementById('final-level');
         const playerNameInput = document.getElementById('player-name');
         const nameInputContainer = document.getElementById('name-input-container');
+        const fullLeaderboardBtn = document.getElementById('full-leaderboard-btn');
+        const fullLeaderboardOverlay = document.getElementById('full-leaderboard-overlay');
+        const fullLeaderboardList = document.getElementById('full-leaderboard-list');
+        const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+        const playFromLeaderboardBtn = document.getElementById('play-from-leaderboard-btn');
 
         // Game area boundaries (relative to game-area element, not game-container)
         // Scissors position is relative to .game-area which starts at top: 70px in CSS
+        // Game area is 450px tall (600 - 70 header - 80 footer)
         const gameAreaTop = 0;
-        const gameAreaBottom = 370;
+        const gameAreaBottom = 420;
         const gameAreaHeight = gameAreaBottom - gameAreaTop;
 
         // Initialize hair
@@ -1062,6 +1190,7 @@
             // Hide overlays
             startScreen.classList.add('hidden');
             gameOverScreen.classList.add('hidden');
+            fullLeaderboardOverlay.classList.add('hidden');
 
             // Setup
             createHair();
@@ -1103,10 +1232,32 @@
             }
         }
 
+        // Show full leaderboard
+        function showFullLeaderboard() {
+            fullLeaderboardOverlay.classList.remove('hidden');
+        }
+
+        // Hide full leaderboard
+        function hideFullLeaderboard() {
+            fullLeaderboardOverlay.classList.add('hidden');
+        }
+
         // Event listeners
         startBtn.addEventListener('click', startGame);
         restartBtn.addEventListener('click', async () => {
             await submitScore();
+            startGame();
+        });
+
+        fullLeaderboardBtn.addEventListener('click', async () => {
+            await submitScore();
+            showFullLeaderboard();
+        });
+
+        closeLeaderboardBtn.addEventListener('click', hideFullLeaderboard);
+
+        playFromLeaderboardBtn.addEventListener('click', async () => {
+            hideFullLeaderboard();
             startGame();
         });
 
